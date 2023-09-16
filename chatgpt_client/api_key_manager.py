@@ -25,7 +25,6 @@ class ApiKeyManager:
     def __init__(
             self, 
             key_pool: List[str], 
-            api_base: str="https://api.openai.com/v1",
             api_delay: int=25,
             ) -> None:
         """
@@ -40,7 +39,6 @@ class ApiKeyManager:
         """
         logger.debug("Initialize api key manager...")
         self._key_pool: asyncio.Queue[ApiKey] = asyncio.Queue()
-        self._api_base: str = api_base
         self._api_delay: int = api_delay
         for api_key_val in key_pool:
             api_key = ApiKey(api_key_val)
