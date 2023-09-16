@@ -8,6 +8,7 @@ TASKTYPE = [
     "Edit",
     "Image",
     "FineTune",
+    "Mock",
 ]
 
 
