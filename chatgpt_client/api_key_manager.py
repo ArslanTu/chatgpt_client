@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from math import inf
 from typing import List
+from tenacity import RetryError, retry, retry_if_not_exception_type, stop_after_attempt, wait_fixed
 
 import openai
 from openai.error import AuthenticationError, RateLimitError
@@ -34,20 +35,14 @@ class ApiKeyManager:
 
         Args:
             key_pool (List[str]): a list of api keys
-            api_base (str, optional): api base. Defaults to "https://api.openai.com/v1".
             api_delay (int, optional): delay of api call for each api key. Defaults to 25.
         """
         logger.debug("Initialize api key manager...")
         self._key_pool: asyncio.Queue[ApiKey] = asyncio.Queue()
         self._api_delay: int = api_delay
-        for api_key_val in key_pool:
+        for api_key_val in key_pool: # TODO: check before or after
             api_key = ApiKey(api_key_val)
-            if self.is_api_key_valid(api_key):
-                self._key_pool.put_nowait(api_key)
-            else:
-                logger.debug(f"{api_key_val} is an invalid key, skip it.")
-        if self._key_pool.qsize() <= 0:
-            logger.debug("There is no valid key.")
+            self._key_pool.put_nowait(api_key)
 
     async def get(self) -> ApiKey:
         """
@@ -69,7 +64,8 @@ class ApiKeyManager:
         """
         await self._key_pool.put(api_key)
 
-    def is_api_key_valid(self, api_key: ApiKey) -> bool:
+    @retry(stop=stop_after_attempt(3), wait=wait_fixed(25))
+    def is_api_key_valid(self, api_key: ApiKey) -> bool: # FIXME: currently unavailable
         """
         test whether the api key is valid
 
@@ -93,7 +89,7 @@ class ApiKeyManager:
             api_key.valid = True
             return True
 
-    async def verify(self, api_key: ApiKey) -> bool:
+    async def verify(self, api_key: ApiKey) -> bool: # FIXME: currently unavailable
         """
         A wrap to is_api_key_valid method
 
@@ -109,4 +105,7 @@ class ApiKeyManager:
             sec_to_sleep = self._api_delay - (datetime.now() - api_key.last_use).seconds
             if sec_to_sleep > 0:
                 await asyncio.sleep(sec_to_sleep)
-        return self.is_api_key_valid(api_key)
+        try:
+            self.is_api_key_valid(api_key)
+        except RetryError as e:
+            logger.error(f"{api_key.val} seems to be invalid.")
