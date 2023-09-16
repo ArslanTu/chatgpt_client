@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from datetime import datetime
-from typing import Any, List
+from typing import List
 
 import openai
 
@@ -59,7 +59,7 @@ class ChatGPTClient:
             await self._api_key_manager.put(api_key)
             return task
 
-    async def execute_tasks(self, tasks: List[Any]) -> List[Any]:
+    async def execute_tasks(self, tasks: List[Task]) -> List[Task]:
         tasks_to_execute = []
         for task in tasks:
             task_to_execute = asyncio.create_task(self.execute_task(task))
