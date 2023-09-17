@@ -35,6 +35,7 @@ class ChatGPTClient:
                 reraise=True,
             ):
                 with attempt:
+                    logger.debug("Try to get api key.")
                     # 1. 尝试获取 key
                     try:
                         # 循环等待，若超时则检查可用key数量，从而决定继续等待还是 raise error
@@ -53,6 +54,7 @@ class ChatGPTClient:
                             except Exception:
                                 raise
                         # 拿到 key，休眠
+                        logger.debug("Got api key, sleep...")
                         time_to_sleep = self._api_delay - (datetime.now() - api_key.last_use).seconds if api_key.last_use is not None else -1
                         if time_to_sleep > 0:
                             await asyncio.sleep(time_to_sleep)
@@ -66,10 +68,12 @@ class ChatGPTClient:
                     
                     # 2. 尝试处理任务
                     try:
+                        logger.debug("Matching task type.")
                         match task.type:
                             case "Completion":
                                 raise NotImplementedError(f"Not implemented task type: {task.type}")
                             case "ChatCompletion":
+                                logger.debug("Start ChatCompletion.")
                                 response = await openai.ChatCompletion.acreate(
                                     model=task.model, 
                                     messages=task.data,
@@ -85,6 +89,7 @@ class ChatGPTClient:
                             case "FineTune":
                                 raise NotImplementedError(f"Not implemented task type: {task.type}")
                             case "Mock":
+                                logger.debug("Start Mock.")
                                 response = "Success!"
                             case _:
                                 raise ValueError(f"Wrong task type: {task.type}")
@@ -119,11 +124,13 @@ class ChatGPTClient:
                     # 其他异常
                     except Exception:
                         raise
-                    # 无异常，更新 task，更新 key 的使用时间
+                    # 无异常，更新 task，更新 key 的使用时间，回收 key
                     else:
                         api_key.last_use = datetime.now()
+                        await self._api_key_manager.put(api_key)
                         task.response = response
                         task.done = True
+                        logger.debug("Task done.")
         # 需要中断的异常
         except(NotImplementedError, ValueError) as e:
             raise
