@@ -43,3 +43,5 @@ async def main():
 if __name__ == "__main__":
     asyncio.run(main())
 ```
+
+The response is in attribute `response` of class `Task`.
